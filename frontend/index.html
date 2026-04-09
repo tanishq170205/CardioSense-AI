@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CardioSense AI — Heart Disease Classification</title>
+  <meta name="description" content="AI-powered heart disease risk prediction using fuzzy logic, multiple ML models, and SHAP explainability."/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .hero-cards {
+      display: flex; justify-content: center; gap: 20px; margin-top: 64px;
+      flex-wrap: wrap;
+    }
+    .mini-stat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 24px; text-align: center; min-width: 150px;
+    }
+    .mini-stat .val { font-size: 1.6rem; font-weight: 800; background: var(--gradient-hero); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .mini-stat .lbl { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+    .about-section { padding: 80px 40px; }
+    .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; margin-top: 40px; }
+    .about-visual {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 36px; position: relative; overflow: hidden;
+    }
+    .about-visual::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(59,107,255,0.15) 0%, transparent 70%);
+    }
+    .pipeline-step {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .pipeline-step:last-child { border-bottom: none; }
+    .step-num {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--accent-blue); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+    }
+    .step-text { font-size: 0.88rem; color: var(--text-secondary); }
+    .step-text strong { color: var(--text-primary); display: block; font-size: 0.92rem; margin-bottom: 2px; }
+
+    .cta-section {
+      background: linear-gradient(135deg, rgba(59,107,255,0.1) 0%, rgba(139,92,246,0.1) 100%);
+      border: 1px solid rgba(59,107,255,0.2);
+      border-radius: var(--radius-xl);
+      padding: 60px 40px; text-align: center; margin: 0 40px 80px;
+    }
+    .cta-section h2 { font-size: 2rem; margin-bottom: 14px; }
+    .cta-section p { color: var(--text-secondary); margin-bottom: 28px; }
+
+    @media (max-width: 768px) {
+      .about-grid { grid-template-columns: 1fr; }
+      .cta-section { margin: 0 20px 60px; padding: 40px 24px; }
+      .about-section { padding: 60px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-icon">❤️</div>
+      CardioSense AI
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="active">Home</a>
+      <a href="predict.html">Predict</a>
+      <a href="compare.html">Model Compare</a>
+      <a href="fuzzy.html">Fuzzy Viz</a>
+      <a href="predict.html" class="nav-cta">Try Now →</a>
+    </div>
+  </nav>
+
+  <div class="page-content">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="hero-badge">🧠 AI + Fuzzy Logic + SHAP Explainability</div>
+      <h1 class="animate-fadeInUp">
+        Heart Disease Risk
+        <span class="gradient-text"><br/>Classified by AI</span>
+      </h1>
+      <p class="hero-sub animate-fadeInUp animate-delay-1">
+        Predict cardiovascular disease risk with explainable AI — combining 7 ML models,
+        fuzzy logic feature engineering, and SHAP-based interpretability.
+      </p>
+      <div class="hero-actions animate-fadeInUp animate-delay-2">
+        <a href="predict.html" class="btn btn-primary btn-lg">🔍 Analyze My Risk</a>
+        <a href="compare.html" class="btn btn-secondary btn-lg">📊 Compare Models</a>
+      </div>
+
+      <div class="hero-cards animate-fadeInUp animate-delay-3">
+        <div class="mini-stat">
+          <div class="val">7</div>
+          <div class="lbl">ML Models</div>
+        </div>
+        <div class="mini-stat">
+          <div class="val">92%</div>
+          <div class="lbl">Peak Accuracy</div>
+        </div>
+        <div class="mini-stat">
+          <div class="val">922</div>
+          <div class="lbl">Training Samples</div>
+        </div>
+        <div class="mini-stat">
+          <div class="val">13</div>
+          <div class="lbl">Clinical Features</div>
+        </div>
+        <div class="mini-stat">
+          <div class="val">5</div>
+          <div class="lbl">Fuzzy Variables</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="about-section">
+      <div class="container">
+        <div class="section-tag">CAPABILITIES</div>
+        <h2 class="section-title">Everything You Need to<br/>Understand Heart Health</h2>
+        <p class="section-subtitle">Built on the UCI Heart Disease dataset, combining state-of-the-art ML with medical fuzzy logic.</p>
+
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon" style="background: rgba(59,107,255,0.15);">🤖</div>
+            <h3>7 ML Models Compared</h3>
+            <p>Logistic Regression, Decision Tree, Random Forest, SVM, XGBoost, LightGBM, and ANN — all evaluated side-by-side.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: rgba(139,92,246,0.15);">🔮</div>
+            <h3>Fuzzy Logic Engineering</h3>
+            <p>5 clinical features (Age, Cholesterol, BP, Heart Rate, ST Depression) fuzzified with triangular & trapezoidal membership functions.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: rgba(16,185,129,0.15);">🔬</div>
+            <h3>SHAP Explainability</h3>
+            <p>Every prediction is explained using SHAP values — see exactly which features contributed most to your risk score.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: rgba(245,158,11,0.15);">📈</div>
+            <h3>Interactive Charts</h3>
+            <p>ROC curves, confusion matrices, SHAP waterfall plots, and fuzzy membership X-Y graphs — all interactive via Chart.js.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: rgba(236,72,153,0.15);">🎯</div>
+            <h3>Binary + Multi-class</h3>
+            <p>Predict both disease/no-disease (binary) and severity level 0–4 (multi-class) with a single API call.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: rgba(0,212,255,0.12);">⚡</div>
+            <h3>Real-time Inference</h3>
+            <p>FastAPI backend serves predictions in milliseconds. Input patient data and get instant, explainable results.</p>
+          </div>
+        </div>
+
+        <!-- Pipeline -->
+        <div class="about-grid" style="margin-top: 70px;">
+          <div>
+            <div class="section-tag">HOW IT WORKS</div>
+            <h2 class="section-title">Data → Fuzzy → ML → Explain</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">
+              The pipeline was designed for both accuracy and interpretability — because in healthcare, the "why" matters as much as the "what".
+            </p>
+            <a href="predict.html" class="btn btn-primary">Start Prediction →</a>
+          </div>
+          <div class="about-visual">
+            <div class="pipeline-step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <strong>Clinical Data Input</strong>
+                13 features: age, sex, chest pain, BP, cholesterol, ECG results, and more.
+              </div>
+            </div>
+            <div class="pipeline-step">
+              <div class="step-num" style="background: var(--accent-purple)">2</div>
+              <div class="step-text">
+                <strong>Fuzzification Layer</strong>
+                Numeric features converted to fuzzy membership degrees (Young/Middle/Senior/Old etc.)
+              </div>
+            </div>
+            <div class="pipeline-step">
+              <div class="step-num" style="background: var(--accent-green)">3</div>
+              <div class="step-text">
+                <strong>ML Model Ensemble</strong>
+                Best performing model (validated on test set) runs the prediction.
+              </div>
+            </div>
+            <div class="pipeline-step">
+              <div class="step-num" style="background: var(--accent-orange)">4</div>
+              <div class="step-text">
+                <strong>SHAP Explanation</strong>
+                Feature contributions computed per-patient for transparent decision support.
+              </div>
+            </div>
+            <div class="pipeline-step">
+              <div class="step-num" style="background: var(--accent-pink)">5</div>
+              <div class="step-text">
+                <strong>Results Dashboard</strong>
+                Risk gauge, severity badge, SHAP chart, and fuzzy membership visualization.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <div class="cta-section">
+      <h2>Ready to assess your cardiac risk?</h2>
+      <p>Fill in your clinical data and get an AI-powered risk analysis in seconds.</p>
+      <a href="predict.html" class="btn btn-primary btn-lg">🔍 Predict Heart Disease Risk</a>
+    </div>
+
+    <footer>
+      <p>CardioSense AI — Built with FastAPI, Scikit-learn, XGBoost, LightGBM, TensorFlow & Chart.js</p>
+      <p style="margin-top: 6px;">Dataset: <a href="https://archive.ics.uci.edu/ml/datasets/Heart+Disease" target="_blank">UCI Heart Disease Repository</a> (Cleveland, Hungary, Switzerland, VA Long Beach)</p>
+    </footer>
+  </div>
+</body>
+</html>

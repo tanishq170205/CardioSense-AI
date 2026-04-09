@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fuzzy Membership Visualization — CardioSense AI</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    .fuzzy-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 40px 80px; }
+    .fuzzy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 28px; }
+    .fuzzy-chart-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 24px;
+    }
+    .fuzzy-chart-title {
+      font-size: 1rem; font-weight: 600; margin-bottom: 4px;
+    }
+    .fuzzy-chart-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; }
+    .user-val-label {
+      font-size: 0.78rem; color: var(--accent-cyan); margin-top: 10px; display: none;
+    }
+
+    .input-panel {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 28px; margin-bottom: 28px;
+    }
+    .input-panel h3 { font-size: 1rem; margin-bottom: 4px; }
+    .input-panel p { font-size: 0.83rem; color: var(--text-muted); margin-bottom: 20px; }
+    .sliders-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+    .slider-field { display: flex; flex-direction: column; gap: 6px; }
+    .slider-field label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 500; display: flex; justify-content: space-between; }
+    .slider-field label span { color: var(--accent-cyan); font-weight: 700; }
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      height: 6px; border-radius: 3px;
+      background: var(--border); width: 100%; cursor: pointer;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--accent-blue); box-shadow: 0 0 8px rgba(59,107,255,0.5);
+      cursor: pointer; border: 2px solid #1a2035;
+    }
+
+    @media (max-width: 768px) {
+      .fuzzy-grid { grid-template-columns: 1fr; }
+      .fuzzy-wrap { padding: 24px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-icon">❤️</div>
+      CardioSense AI
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="predict.html">Predict</a>
+      <a href="compare.html">Model Compare</a>
+      <a href="fuzzy.html" class="active">Fuzzy Viz</a>
+      <a href="predict.html" class="nav-cta">Try Now →</a>
+    </div>
+  </nav>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="container">
+        <div class="section-tag">FUZZY LOGIC VISUALIZATION</div>
+        <h1>Membership Function Graphs</h1>
+        <p>Explore how clinical features are fuzzified into linguistic variables. Drag the sliders to see where a value falls on each membership function curve.</p>
+      </div>
+    </div>
+
+    <div class="fuzzy-wrap">
+      <div id="loadingMsg" class="alert alert-info">⏳ Loading fuzzy membership data from API...</div>
+      <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+
+      <!-- Interactive slider panel -->
+      <div class="input-panel" id="sliderPanel" style="display:none">
+        <h3>🎛️ Interactive Patient Input</h3>
+        <p>Move the sliders to adjust patient values. Vertical markers on each chart will update in real-time.</p>
+        <div class="sliders-grid">
+          <div class="slider-field">
+            <label>Age (years) <span id="ageVal">55</span></label>
+            <input type="range" id="sliderAge" min="0" max="100" value="55" step="1"/>
+          </div>
+          <div class="slider-field">
+            <label>Cholesterol (mg/dL) <span id="cholVal">240</span></label>
+            <input type="range" id="sliderChol" min="0" max="500" value="240" step="5"/>
+          </div>
+          <div class="slider-field">
+            <label>Resting BP (mmHg) <span id="bpsVal">135</span></label>
+            <input type="range" id="sliderBps" min="80" max="220" value="135" step="1"/>
+          </div>
+          <div class="slider-field">
+            <label>Max Heart Rate <span id="thalchVal">140</span></label>
+            <input type="range" id="sliderThalch" min="60" max="220" value="140" step="1"/>
+          </div>
+          <div class="slider-field">
+            <label>Oldpeak (ST depr.) <span id="oldpeakVal">1.5</span></label>
+            <input type="range" id="sliderOldpeak" min="0" max="6" value="1.5" step="0.1"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="fuzzy-grid" id="fuzzyGrid" style="display:none"></div>
+    </div>
+
+    <footer>
+      <p>CardioSense AI — Fuzzy membership functions computed using scikit-fuzzy (triangular & trapezoidal MFs).</p>
+    </footer>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    const LINE_COLORS = ['#3b6bff','#8b5cf6','#10b981','#f59e0b'];
+    let fuzzyData = null;
+    let charts = {};
+
+    const sliderConfig = [
+      { key: 'age',      sliderId: 'sliderAge',     valId: 'ageVal',     decimals: 0 },
+      { key: 'chol',     sliderId: 'sliderChol',    valId: 'cholVal',    decimals: 0 },
+      { key: 'trestbps', sliderId: 'sliderBps',     valId: 'bpsVal',     decimals: 0 },
+      { key: 'thalch',   sliderId: 'sliderThalch',  valId: 'thalchVal',  decimals: 0 },
+      { key: 'oldpeak',  sliderId: 'sliderOldpeak', valId: 'oldpeakVal', decimals: 1 },
+    ];
+
+    const featureLabels = {
+      age: { title: 'Age', unit: 'years', sets: ['Young', 'Middle-aged', 'Senior', 'Old'] },
+      chol: { title: 'Cholesterol', unit: 'mg/dL', sets: ['Low', 'Normal', 'High', 'Very High'] },
+      trestbps: { title: 'Resting Blood Pressure', unit: 'mmHg', sets: ['Normal', 'Elevated', 'High', 'Crisis'] },
+      thalch: { title: 'Max Heart Rate', unit: 'bpm', sets: ['Low', 'Normal', 'High'] },
+      oldpeak: { title: 'ST Depression (Oldpeak)', unit: 'mm', sets: ['None', 'Mild', 'Moderate', 'Severe'] }
+    };
+
+    function getSliderValue(key) {
+      const cfg = sliderConfig.find(s => s.key === key);
+      return cfg ? parseFloat(document.getElementById(cfg.sliderId).value) : null;
+    }
+
+    function getClosestIdx(xArr, val) {
+      let closest = 0; let minD = Infinity;
+      xArr.forEach((x, i) => { const d = Math.abs(x - val); if (d < minD) { minD = d; closest = i; } });
+      return closest;
+    }
+
+    function renderChart(key) {
+      const d = fuzzyData[key];
+      const info = featureLabels[key] || { title: key, unit: '', sets: [] };
+      const userVal = getSliderValue(key);
+
+      // Annotation: vertical line at user value
+      const plugins = {};
+      let verticalLine = {
+        id: 'verticalLine',
+        afterDraw(chart) {
+          if (userVal === null) return;
+          const x = d.x;
+          const idx = getClosestIdx(x, userVal);
+          const meta = chart.getDatasetMeta(0);
+          if (!meta.data[idx]) return;
+          const xPx = meta.data[idx].x;
+          const ctx = chart.ctx;
+          const top = chart.chartArea.top;
+          const bottom = chart.chartArea.bottom;
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(xPx, top);
+          ctx.lineTo(xPx, bottom);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgba(0,212,255,0.7)';
+          ctx.setLineDash([5, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Label
+          ctx.fillStyle = 'rgba(0,212,255,0.9)';
+          ctx.font = '600 11px Inter';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${userVal}${info.unit}`, xPx, top - 4);
+          ctx.restore();
+        }
+      };
+
+      const datasets = d.lines.map((line, i) => ({
+        label: line.name,
+        data: line.y,
+        borderColor: LINE_COLORS[i % LINE_COLORS.length],
+        backgroundColor: LINE_COLORS[i % LINE_COLORS.length] + '18',
+        borderWidth: 2.5,
+        tension: 0.1,
+        fill: true,
+        pointRadius: 0,
+      }));
+
+      if (charts[key]) { charts[key].destroy(); }
+      charts[key] = new Chart(document.getElementById(`chart_${key}`), {
+        type: 'line',
+        data: { labels: d.x, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#8b9abc', font: { size: 11 }, boxWidth: 14, padding: 12 } },
+            tooltip: {
+              backgroundColor: 'rgba(20,25,38,0.95)',
+              borderColor: 'rgba(31,41,64,1)',
+              borderWidth: 1,
+              titleColor: '#8b9abc',
+              bodyColor: '#f0f4ff',
+              padding: 10,
+              callbacks: {
+                title: items => `${info.title}: ${items[0].label}${info.unit}`,
+                label: item => `${item.dataset.label}: ${(item.raw * 100).toFixed(1)}%`
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#8b9abc', maxTicksLimit: 8, font: { size: 10 } },
+              grid: { color: 'rgba(31,41,64,0.5)' }
+            },
+            y: {
+              min: 0, max: 1,
+              ticks: { color: '#8b9abc', callback: v => (v * 100).toFixed(0) + '%' },
+              grid: { color: 'rgba(31,41,64,0.5)' }
+            }
+          }
+        },
+        plugins: [verticalLine]
+      });
+    }
+
+    function buildGrid() {
+      const grid = document.getElementById('fuzzyGrid');
+      grid.innerHTML = Object.keys(fuzzyData).map(key => {
+        const info = featureLabels[key] || { title: key, sets: [] };
+        const legendDots = info.sets.map((s, i) =>
+          `<div class="fuzzy-legend-item">
+             <div class="fuzzy-legend-color" style="background:${LINE_COLORS[i % LINE_COLORS.length]}"></div>
+             ${s}
+           </div>`).join('');
+        return `
+          <div class="fuzzy-chart-card">
+            <div class="fuzzy-chart-title">${info.title}</div>
+            <div class="fuzzy-chart-sub">Membership degree (0–100%) for each linguistic set</div>
+            <div style="position:relative;height:220px">
+              <canvas id="chart_${key}"></canvas>
+            </div>
+            <div class="fuzzy-legend">${legendDots}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function updateAllCharts() {
+      Object.keys(fuzzyData).forEach(key => renderChart(key));
+    }
+
+    // Slider listeners
+    sliderConfig.forEach(({ key, sliderId, valId, decimals }) => {
+      const slider = document.getElementById(sliderId);
+      if (!slider) return;
+      slider.addEventListener('input', () => {
+        document.getElementById(valId).textContent = parseFloat(slider.value).toFixed(decimals);
+        updateAllCharts();
+      });
+    });
+
+    async function init() {
+      try {
+        fuzzyData = await apiGet('/api/fuzzy_graphs');
+        document.getElementById('loadingMsg').style.display = 'none';
+        document.getElementById('sliderPanel').style.display = 'block';
+        document.getElementById('fuzzyGrid').style.display = 'grid';
+        buildGrid();
+        updateAllCharts();
+      } catch (err) {
+        document.getElementById('loadingMsg').style.display = 'none';
+        const errEl = document.getElementById('errorMsg');
+        errEl.textContent = '⚠️ Could not load fuzzy data: ' + err.message + '. Make sure the backend is running on port 8000.';
+        errEl.style.display = 'flex';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

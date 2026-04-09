@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Results — CardioSense AI</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    .results-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 40px 80px; }
+    .no-result-banner {
+      text-align: center; padding: 80px 40px;
+    }
+    .no-result-banner h2 { margin-bottom: 12px; }
+    .no-result-banner p { color: var(--text-secondary); margin-bottom: 28px; }
+
+    /* Gauge */
+    .gauge-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-xl); padding: 32px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .risk-label-big { font-size: 2.6rem; font-weight: 800; }
+    .risk-sub { color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px; }
+
+    /* Top Summary */
+    .summary-top {
+      display: grid; grid-template-columns: 280px 1fr; gap: 24px; margin-bottom: 28px;
+    }
+    .info-panel {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-xl); padding: 28px;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    .info-row { display: flex; flex-direction: column; gap: 4px; }
+    .info-row .lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+    .info-row .val { font-size: 1.15rem; font-weight: 700; }
+
+    .prob-label { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px; }
+
+    /* Sections */
+    .results-sections { display: grid; gap: 24px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+    /* Fuzzy memberships */
+    .fuzzy-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .fuzzy-pill {
+      padding: 5px 12px; border-radius: 100px;
+      font-size: 0.78rem; font-weight: 600;
+      background: var(--bg-secondary); border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .fuzzy-pill.active { background: rgba(59,107,255,0.15); border-color: rgba(59,107,255,0.4); color: var(--accent-cyan); }
+    .fuzzy-pill span { color: var(--text-muted); margin-left: 4px; font-weight: 400; }
+
+    .back-row { display: flex; gap: 14px; margin-bottom: 28px; align-items: center; }
+
+    @media (max-width: 768px) {
+      .summary-top { grid-template-columns: 1fr; }
+      .two-col { grid-template-columns: 1fr; }
+      .results-wrap { padding: 24px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-icon">❤️</div>
+      CardioSense AI
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="predict.html" class="active">Predict</a>
+      <a href="compare.html">Model Compare</a>
+      <a href="fuzzy.html">Fuzzy Viz</a>
+      <a href="predict.html" class="nav-cta">Try Now →</a>
+    </div>
+  </nav>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="container">
+        <div class="section-tag">ANALYSIS RESULTS</div>
+        <h1>Prediction Dashboard</h1>
+        <p>AI-generated cardiovascular risk analysis with SHAP explainability.</p>
+      </div>
+    </div>
+
+    <div class="results-wrap" id="resultsContainer">
+      <!-- Filled by JS -->
+    </div>
+
+    <footer>
+      <p>CardioSense AI — For research & educational purposes only.</p>
+    </footer>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    const container = document.getElementById('resultsContainer');
+
+    function getRiskColor(score) {
+      if (score >= 75) return '#ef4444';
+      if (score >= 50) return '#f59e0b';
+      if (score >= 25) return '#3b6bff';
+      return '#10b981';
+    }
+
+    function getRiskLabel(score) {
+      if (score >= 75) return { label: 'High Risk', class: 'badge-red' };
+      if (score >= 50) return { label: 'Moderate Risk', class: 'badge-orange' };
+      if (score >= 25) return { label: 'Low-Moderate Risk', class: 'badge-blue' };
+      return { label: 'Low Risk', class: 'badge-green' };
+    }
+
+    function drawGauge(canvasId, score) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      const color = getRiskColor(score);
+      const w = canvas.width, h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+      const cx = w / 2, cy = h * 0.7, r = Math.min(w, h) * 0.38;
+      const startAngle = Math.PI, endAngle = 2 * Math.PI;
+      const fillAngle = startAngle + (score / 100) * Math.PI;
+
+      // Track
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, startAngle, endAngle);
+      ctx.lineWidth = 22;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(31,41,64,0.8)';
+      ctx.stroke();
+
+      // Fill
+      if (score > 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, startAngle, fillAngle);
+        ctx.lineWidth = 22;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      // Labels
+      ctx.fillStyle = 'rgba(74,85,120,1)';
+      ctx.font = '600 11px Inter';
+      ctx.textAlign = 'left'; ctx.fillText('0', cx - r - 14, cy + 12);
+      ctx.textAlign = 'right'; ctx.fillText('100', cx + r + 14, cy + 12);
+    }
+
+    function renderShapChart(shapValues) {
+      const entries = Object.entries(shapValues)
+        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+        .slice(0, 10);
+
+      const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v)));
+      if (maxAbs === 0) return '<p style="color:var(--text-muted);font-size:0.85rem;">SHAP values not available.</p>';
+
+      return entries.map(([feat, val]) => {
+        const pct = Math.min(100, (Math.abs(val) / maxAbs) * 100);
+        const isPos = val >= 0;
+        const color = isPos ? 'text-danger' : 'text-safe';
+        const sign = isPos ? '+' : '';
+        const side = isPos ? 'shap-positive' : 'shap-negative';
+        const label = feat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return `
+          <div class="shap-bar-row">
+            <div class="shap-label">${label}</div>
+            <div class="shap-bar-track">
+              <div class="shap-bar-fill ${side}" style="width:${pct}%"></div>
+            </div>
+            <div class="shap-value" style="color:${isPos ? '#f87171' : '#34d399'}">${sign}${val.toFixed(3)}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderFuzzyPills(fuzzyMemberships) {
+      if (!fuzzyMemberships || Object.keys(fuzzyMemberships).length === 0) {
+        return '<span style="color:var(--text-muted);font-size:0.85rem;">Fuzzy membership data not available.</span>';
+      }
+      return Object.entries(fuzzyMemberships)
+        .map(([k, v]) => {
+          const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const isActive = v > 0.4;
+          return `<div class="fuzzy-pill ${isActive ? 'active' : ''}">${label}<span>${(v * 100).toFixed(0)}%</span></div>`;
+        }).join('');
+    }
+
+    function render(pred, form) {
+      const { binary_result, probability, risk_score, model_used, shap_values, fuzzy_memberships } = pred;
+      const riskInfo = getRiskLabel(risk_score);
+      const color = getRiskColor(risk_score);
+      const isDis = binary_result === 'Disease';
+
+      container.innerHTML = `
+        <div class="back-row">
+          <a href="predict.html" class="btn btn-secondary">← New Prediction</a>
+          <span style="color:var(--text-muted);font-size:0.85rem;">Model used: <strong style="color:var(--text-primary)">${model_used || 'Unknown'}</strong></span>
+        </div>
+
+        <div class="summary-top">
+          <!-- Gauge -->
+          <div class="gauge-card">
+            <canvas id="gaugeCanvas" width="280" height="170"></canvas>
+            <div class="risk-label-big" style="color:${color};margin-top:8px">${risk_score}</div>
+            <div class="risk-sub">Risk Score (0–100)</div>
+            <div style="margin-top:12px">
+              <span class="badge ${isDis ? 'badge-red' : 'badge-green'}" style="font-size:0.95rem;padding:8px 20px">
+                ${isDis ? '⚠️' : '✅'} ${binary_result}
+              </span>
+            </div>
+            <div style="margin-top:10px">
+              <span class="badge ${riskInfo.class}">${riskInfo.label}</span>
+            </div>
+          </div>
+
+          <!-- Info panel -->
+          <div class="info-panel">
+            <div class="info-row">
+              <span class="lbl">Disease Probability</span>
+              <span class="val" style="color:${color}">${(probability * 100).toFixed(1)}%</span>
+              <div class="prob-label"><span>0%</span><span>50%</span><span>100%</span></div>
+              <div class="prob-bar-wrap">
+                <div id="probBar" class="prob-bar-fill" style="width:0%;background:${color}"></div>
+              </div>
+            </div>
+            ${form ? `
+            <div class="info-row">
+              <span class="lbl">Patient Profile</span>
+              <span class="val">${form.age}yr, ${form.sex}</span>
+              <span style="color:var(--text-secondary);font-size:0.85rem;">
+                CP: ${form.cp} | BP: ${form.trestbps} mmHg | Chol: ${form.chol} mg/dL
+              </span>
+              <span style="color:var(--text-secondary);font-size:0.85rem;">
+                MaxHR: ${form.thalch} | Oldpeak: ${form.oldpeak} | CA: ${form.ca}
+              </span>
+            </div>` : ''}
+            <div class="info-row">
+              <span class="lbl">Risk Level</span>
+              <span class="badge ${riskInfo.class}">${riskInfo.label}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Recommendation</span>
+              <span style="font-size:0.88rem;color:var(--text-secondary);line-height:1.5">
+                ${isDis
+                  ? '⚠️ Risk indicators present. Recommend consultation with a cardiologist, ECG, and stress test.'
+                  : '✅ Low-risk profile based on input data. Maintain healthy lifestyle and regular check-ups.'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="results-sections">
+          <!-- SHAP -->
+          <div class="chart-box">
+            <div class="chart-title">🔬 SHAP Feature Contributions (+ = increases risk, − = decreases risk)</div>
+            <div id="shapBars">${renderShapChart(shap_values || {})}</div>
+          </div>
+
+          <div class="two-col">
+            <!-- Probability bar chart -->
+            <div class="chart-box">
+              <div class="chart-title">📊 Risk Probability Breakdown</div>
+              <canvas id="probChart" height="200"></canvas>
+            </div>
+            <!-- Fuzzy memberships -->
+            <div class="chart-box">
+              <div class="chart-title">🔮 Fuzzy Membership Degrees</div>
+              <p style="font-size:0.83rem;color:var(--text-secondary);margin-bottom:10px">
+                Active fuzzy sets for this patient's input values (≥40% shown highlighted):
+              </p>
+              <div class="fuzzy-pills">${renderFuzzyPills(fuzzy_memberships)}</div>
+              <div style="margin-top:16px">
+                <a href="fuzzy.html" class="btn btn-secondary" style="font-size:0.82rem;padding:8px 16px">
+                  📈 View Membership Graphs →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Draw gauge
+      setTimeout(() => drawGauge('gaugeCanvas', risk_score), 50);
+
+      // Animate probability bar
+      setTimeout(() => {
+        document.getElementById('probBar').style.width = (probability * 100).toFixed(1) + '%';
+      }, 100);
+
+      // Probability bar chart
+      const chartData = {
+        labels: ['No Disease', 'Disease'],
+        datasets: [{
+          data: [((1 - probability) * 100).toFixed(1), (probability * 100).toFixed(1)],
+          backgroundColor: ['rgba(16,185,129,0.7)', `rgba(${isDis ? '239,68,68' : '59,107,255'},0.7)`],
+          borderColor: ['#10b981', isDis ? '#ef4444' : '#3b6bff'],
+          borderWidth: 2, borderRadius: 8,
+        }]
+      };
+      new Chart(document.getElementById('probChart'), {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(31,41,64,0.5)' }, ticks: { color: '#8b9abc' } },
+            y: { grid: { color: 'rgba(31,41,64,0.5)' }, ticks: { color: '#8b9abc' }, max: 100 }
+          }
+        }
+      });
+    }
+
+    // Load from sessionStorage
+    const { prediction, formData } = loadPrediction();
+    if (!prediction) {
+      container.innerHTML = `
+        <div class="no-result-banner">
+          <div style="font-size:4rem;margin-bottom:16px">🔍</div>
+          <h2>No Prediction Found</h2>
+          <p>You haven't submitted any patient data yet. Please fill the prediction form first.</p>
+          <a href="predict.html" class="btn btn-primary btn-lg">Go to Prediction Form</a>
+        </div>`;
+    } else {
+      render(prediction, formData);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Predict — CardioSense AI</title>
+  <meta name="description" content="Enter patient clinical data for AI-powered heart disease risk assessment."/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .predict-wrap { max-width: 880px; margin: 0 auto; padding: 20px 40px 80px; }
+    .submit-row { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 32px; }
+    .loading-overlay {
+      display: none; position: fixed; inset: 0; z-index: 999;
+      background: rgba(10,13,20,0.75); backdrop-filter: blur(6px);
+      align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    }
+    .loading-overlay.show { display: flex; }
+    .loading-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 40px 48px; text-align: center;
+    }
+    .loading-card h3 { margin-top: 16px; margin-bottom: 8px; }
+    .loading-card p { color: var(--text-secondary); font-size: 0.88rem; }
+    .spinner-lg { width: 48px; height: 48px; border-width: 3px; margin: 0 auto; }
+    .form-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
+    .info-bar {
+      background: rgba(59,107,255,0.08);
+      border: 1px solid rgba(59,107,255,0.2);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      font-size: 0.85rem; color: var(--accent-cyan);
+      margin-bottom: 24px;
+      display: flex; align-items: center; gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-icon">❤️</div>
+      CardioSense AI
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="predict.html" class="active">Predict</a>
+      <a href="compare.html">Model Compare</a>
+      <a href="fuzzy.html">Fuzzy Viz</a>
+      <a href="predict.html" class="nav-cta">Try Now →</a>
+    </div>
+  </nav>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-card">
+      <div class="spinner spinner-lg"></div>
+      <h3>Analyzing Cardiac Data...</h3>
+      <p>Running fuzzy fuzzification, ML inference & SHAP explanation</p>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="container">
+        <div class="section-tag">PREDICTION TOOL</div>
+        <h1>Heart Disease Risk Assessment</h1>
+        <p>Enter the patient's clinical information below. All fields are required for accurate AI analysis.</p>
+      </div>
+    </div>
+
+    <div class="predict-wrap">
+      <div class="info-bar">
+        ℹ️ This tool is for educational/research purposes only. Always consult a licensed cardiologist for medical decisions.
+      </div>
+
+      <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+
+      <form id="predictForm" novalidate>
+
+        <!-- Demographics -->
+        <div class="form-group-title">👤 Demographics</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="age">Age (years)</label>
+            <input type="number" id="age" name="age" min="1" max="120" placeholder="e.g. 55" required/>
+            <span class="form-hint">Typical range: 20–90</span>
+          </div>
+          <div class="form-field">
+            <label for="sex">Biological Sex</label>
+            <select id="sex" name="sex" required>
+              <option value="" disabled selected>Select sex</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Symptoms -->
+        <div class="form-group-title">💓 Symptoms & Pain</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="cp">Chest Pain Type</label>
+            <select id="cp" name="cp" required>
+              <option value="" disabled selected>Select type</option>
+              <option value="typical angina">Typical Angina</option>
+              <option value="atypical angina">Atypical Angina</option>
+              <option value="non-anginal">Non-Anginal Pain</option>
+              <option value="asymptomatic">Asymptomatic</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="exang">Exercise-Induced Angina</label>
+            <select id="exang" name="exang" required>
+              <option value="" disabled selected>Select</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Vitals -->
+        <div class="form-group-title">🩺 Vital Signs</div>
+        <div class="form-grid-3">
+          <div class="form-field">
+            <label for="trestbps">Resting BP (mmHg)</label>
+            <input type="number" id="trestbps" name="trestbps" min="60" max="300" placeholder="e.g. 130" required/>
+            <span class="form-hint">Normal: &lt;120</span>
+          </div>
+          <div class="form-field">
+            <label for="chol">Cholesterol (mg/dL)</label>
+            <input type="number" id="chol" name="chol" min="50" max="800" placeholder="e.g. 240" required/>
+            <span class="form-hint">Desirable: &lt;200</span>
+          </div>
+          <div class="form-field">
+            <label for="thalch">Max Heart Rate</label>
+            <input type="number" id="thalch" name="thalch" min="60" max="250" placeholder="e.g. 150" required/>
+            <span class="form-hint">Achieved during exercise</span>
+          </div>
+        </div>
+
+        <!-- Labs -->
+        <div class="form-group-title">🔬 Laboratory & ECG</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="fbs">Fasting Blood Sugar &gt; 120 mg/dL</label>
+            <select id="fbs" name="fbs" required>
+              <option value="" disabled selected>Select</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="restecg">Resting ECG Results</label>
+            <select id="restecg" name="restecg" required>
+              <option value="" disabled selected>Select</option>
+              <option value="normal">Normal</option>
+              <option value="st-t abnormality">ST-T Wave Abnormality</option>
+              <option value="lv hypertrophy">Left Ventricular Hypertrophy</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ST & Vessels -->
+        <div class="form-group-title">📉 ST Segment & Vessels</div>
+        <div class="form-grid-3">
+          <div class="form-field">
+            <label for="oldpeak">ST Depression (oldpeak)</label>
+            <input type="number" id="oldpeak" name="oldpeak" step="0.1" min="-5" max="20" placeholder="e.g. 1.5" required/>
+            <span class="form-hint">Exercise-induced</span>
+          </div>
+          <div class="form-field">
+            <label for="slope">ST Slope</label>
+            <select id="slope" name="slope" required>
+              <option value="" disabled selected>Select</option>
+              <option value="upsloping">Upsloping</option>
+              <option value="flat">Flat</option>
+              <option value="downsloping">Downsloping</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="ca">Major Vessels (0–3)</label>
+            <input type="number" id="ca" name="ca" min="0" max="3" placeholder="e.g. 1" required/>
+            <span class="form-hint">Colored by fluoroscopy</span>
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-top: 0;">
+          <div class="form-field">
+            <label for="thal">Thalassemia</label>
+            <select id="thal" name="thal" required>
+              <option value="" disabled selected>Select</option>
+              <option value="normal">Normal</option>
+              <option value="fixed defect">Fixed Defect</option>
+              <option value="reversable defect">Reversible Defect</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="submit-row">
+          <button type="button" class="btn btn-secondary" onclick="resetForm()">↺ Reset</button>
+          <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+            🔍 Analyze Risk
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <footer>
+      <p>CardioSense AI — Educational research tool. Not a substitute for professional medical advice.</p>
+    </footer>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    const form = document.getElementById('predictForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const overlay = document.getElementById('loadingOverlay');
+    const errorMsg = document.getElementById('errorMsg');
+
+    function showError(msg) {
+      errorMsg.textContent = '⚠️ ' + msg;
+      errorMsg.style.display = 'flex';
+      errorMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function hideError() { errorMsg.style.display = 'none'; }
+
+    function resetForm() {
+      form.reset();
+      hideError();
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      // Validate all fields
+      const fields = form.querySelectorAll('input, select');
+      for (const f of fields) {
+        if (!f.value && f.value !== '0') {
+          showError(`Please fill in: ${f.labels[0]?.textContent || f.name}`);
+          f.focus();
+          return;
+        }
+      }
+
+      const data = {
+        age: parseFloat(document.getElementById('age').value),
+        sex: document.getElementById('sex').value,
+        cp: document.getElementById('cp').value,
+        trestbps: parseFloat(document.getElementById('trestbps').value),
+        chol: parseFloat(document.getElementById('chol').value),
+        fbs: document.getElementById('fbs').value === 'true',
+        restecg: document.getElementById('restecg').value,
+        thalch: parseFloat(document.getElementById('thalch').value),
+        exang: document.getElementById('exang').value === 'true',
+        oldpeak: parseFloat(document.getElementById('oldpeak').value),
+        slope: document.getElementById('slope').value,
+        ca: parseFloat(document.getElementById('ca').value),
+        thal: document.getElementById('thal').value
+      };
+
+      overlay.classList.add('show');
+      submitBtn.disabled = true;
+
+      try {
+        const result = await apiPost('/api/predict', data);
+        savePrediction(result, data);
+        window.location.href = 'results.html';
+      } catch (err) {
+        overlay.classList.remove('show');
+        submitBtn.disabled = false;
+        showError(err.message || 'Prediction failed. Make sure the backend server is running on port 8000.');
+      }
+    });
+  </script>
+</body>
+</html>

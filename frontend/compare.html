@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Model Comparison — CardioSense AI</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    .compare-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 40px 80px; }
+    .controls-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 28px; }
+
+    .metrics-section { margin-bottom: 36px; }
+    .badge-best { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; }
+
+    .bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--accent-blue); vertical-align: middle; transition: width 0.8s ease; }
+
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 28px; }
+
+    .cm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+    .cm-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; }
+    .cm-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 14px; }
+    .cm-matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; max-width: 180px; }
+    .cm-cell {
+      aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; font-size: 1.1rem; font-weight: 700; color: white;
+    }
+    .cm-tp { background: rgba(16,185,129,0.7); }
+    .cm-tn { background: rgba(16,185,129,0.5); }
+    .cm-fp { background: rgba(239,68,68,0.5); }
+    .cm-fn { background: rgba(239,68,68,0.7); }
+    .cm-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 0.72rem; color: var(--text-muted); }
+
+    .model-colors { --c0:#3b6bff; --c1:#8b5cf6; --c2:#10b981; --c3:#f59e0b; --c4:#ef4444; --c5:#ec4899; --c6:#00d4ff; }
+
+    @media (max-width: 768px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      .compare-wrap { padding: 24px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-icon">❤️</div>
+      CardioSense AI
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="predict.html">Predict</a>
+      <a href="compare.html" class="active">Model Compare</a>
+      <a href="fuzzy.html">Fuzzy Viz</a>
+      <a href="predict.html" class="nav-cta">Try Now →</a>
+    </div>
+  </nav>
+
+  <div class="page-content">
+    <div class="page-header">
+      <div class="container">
+        <div class="section-tag">MODEL BENCHMARKS</div>
+        <h1>Model Comparison</h1>
+        <p>Evaluate all 7 ML models across binary & multi-class tasks, with and without fuzzy feature engineering.</p>
+      </div>
+    </div>
+
+    <div class="compare-wrap model-colors">
+      <div id="loadingMsg" class="alert alert-info">⏳ Loading model metrics from API...</div>
+      <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+      <div id="mainContent" style="display:none">
+
+        <div class="controls-row">
+          <div>
+            <div class="toggle-group" id="taskToggle">
+              <button class="toggle-btn active" data-task="binary">Binary (Disease/No Disease)</button>
+              <button class="toggle-btn" data-task="multiclass">Multi-class (Severity 0–4)</button>
+            </div>
+          </div>
+          <div>
+            <div class="toggle-group" id="featToggle">
+              <button class="toggle-btn active" data-feat="raw">Raw Features</button>
+              <button class="toggle-btn" data-feat="fuzzy">Fuzzy Features</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics Table -->
+        <div class="metrics-section">
+          <div class="chart-box">
+            <div class="chart-title">📋 Performance Metrics</div>
+            <div style="overflow-x:auto">
+              <table class="data-table" id="metricsTable">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Accuracy</th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>F1 Score</th>
+                    <th>AUC-ROC</th>
+                  </tr>
+                </thead>
+                <tbody id="metricsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+          <div class="chart-box">
+            <div class="chart-title">📊 Accuracy Comparison</div>
+            <canvas id="accuracyChart" height="260"></canvas>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">🎯 F1 Score Comparison</div>
+            <canvas id="f1Chart" height="260"></canvas>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">📈 AUC-ROC Comparison</div>
+            <canvas id="aucChart" height="260"></canvas>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">🔄 Raw vs Fuzzy — Accuracy Delta</div>
+            <canvas id="deltaChart" height="260"></canvas>
+          </div>
+        </div>
+
+        <!-- Confusion matrices -->
+        <div class="chart-box" style="margin-top:28px">
+          <div class="chart-title">🗺️ Confusion Matrices (all models)</div>
+          <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px">
+            TP = True Positive (Disease correctly detected), TN = True Negative (correctly no disease)
+          </p>
+          <div class="cm-grid" id="cmGrid"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <footer>
+      <p>CardioSense AI — Model metrics derived from UCI Heart Disease test split.</p>
+    </footer>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    let metricsData = null;
+    let currentTask = 'binary';
+    let currentFeat = 'raw';
+    let charts = {};
+
+    const MODEL_COLORS = [
+      '#3b6bff','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#00d4ff'
+    ];
+
+    function pct(v) { return (v * 100).toFixed(1) + '%'; }
+
+    function getCurrentData() {
+      return metricsData[currentTask][currentFeat];
+    }
+
+    function renderTable() {
+      const data = getCurrentData();
+      const models = Object.keys(data);
+      const bestAcc = Math.max(...models.map(m => data[m].accuracy));
+      const body = document.getElementById('metricsBody');
+      body.innerHTML = models.map((m, i) => {
+        const d = data[m];
+        const isBest = d.accuracy === bestAcc;
+        const color = MODEL_COLORS[i % MODEL_COLORS.length];
+        return `<tr class="${isBest ? 'best-row' : ''}">
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
+              ${m} ${isBest ? '<span class="badge-best">BEST</span>' : ''}
+            </div>
+          </td>
+          <td>${pct(d.accuracy)}</td>
+          <td>${pct(d.precision)}</td>
+          <td>${pct(d.recall)}</td>
+          <td>${pct(d.f1)}</td>
+          <td>${pct(d.auc)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function makeBarChart(canvasId, labels, values, colors, label) {
+      if (charts[canvasId]) charts[canvasId].destroy();
+      charts[canvasId] = new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{ label, data: values.map(v => (v*100).toFixed(2)), backgroundColor: colors.map(c => c + 'bb'), borderColor: colors, borderWidth: 2, borderRadius: 8 }]
+        },
+        options: {
+          responsive: true, indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { min: 40, max: 100, grid: { color: 'rgba(31,41,64,0.5)' }, ticks: { color: '#8b9abc', callback: v => v + '%' } },
+            y: { grid: { display: false }, ticks: { color: '#8b9abc', font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    function makeDeltaChart(labels) {
+      const rawData = metricsData[currentTask]['raw'];
+      const fuzzyData = metricsData[currentTask]['fuzzy'];
+      const deltas = labels.map(m => {
+        const r = rawData[m]?.accuracy || 0;
+        const f = fuzzyData[m]?.accuracy || 0;
+        return ((f - r) * 100).toFixed(2);
+      });
+      const colors = deltas.map(d => parseFloat(d) >= 0 ? '#10b981' : '#ef4444');
+
+      if (charts['deltaChart']) charts['deltaChart'].destroy();
+      charts['deltaChart'] = new Chart(document.getElementById('deltaChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{ label: 'Fuzzy − Raw (pp)', data: deltas, backgroundColor: colors.map(c => c + 'aa'), borderColor: colors, borderWidth: 2, borderRadius: 8 }]
+        },
+        options: {
+          responsive: true, indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(31,41,64,0.5)' }, ticks: { color: '#8b9abc', callback: v => v > 0 ? '+' + v + '%' : v + '%' } },
+            y: { grid: { display: false }, ticks: { color: '#8b9abc', font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    function renderCharts() {
+      const data = getCurrentData();
+      const models = Object.keys(data);
+      const colors = models.map((_, i) => MODEL_COLORS[i % MODEL_COLORS.length]);
+
+      makeBarChart('accuracyChart', models, models.map(m => data[m].accuracy), colors, 'Accuracy');
+      makeBarChart('f1Chart', models, models.map(m => data[m].f1), colors, 'F1 Score');
+      makeBarChart('aucChart', models, models.map(m => data[m].auc), colors, 'AUC-ROC');
+      makeDeltaChart(models);
+    }
+
+    function renderConfusionMatrices() {
+      const data = getCurrentData();
+      const grid = document.getElementById('cmGrid');
+      grid.innerHTML = Object.entries(data).map(([model, d]) => {
+        const cm = d.confusion_matrix;
+        if (!cm || cm.length < 2) return '';
+        // Binary case
+        if (cm.length === 2 && cm[0].length === 2) {
+          const [[tn, fp], [fn, tp]] = cm;
+          return `<div class="cm-card">
+            <div class="cm-title">${model}</div>
+            <div class="cm-matrix">
+              <div class="cm-cell cm-tn">${tn}</div>
+              <div class="cm-cell cm-fp">${fp}</div>
+              <div class="cm-cell cm-fn">${fn}</div>
+              <div class="cm-cell cm-tp">${tp}</div>
+            </div>
+            <div class="cm-legend">
+              <span>TN: ${tn}</span><span>FP: ${fp}</span><span>FN: ${fn}</span><span>TP: ${tp}</span>
+            </div>
+          </div>`;
+        }
+        // Multi-class: render as plain numbers
+        const rows = cm.map(row => `<tr>${row.map(v => `<td style="padding:4px 7px;text-align:center;border:1px solid var(--border);font-size:0.8rem">${v}</td>`).join('')}</tr>`).join('');
+        return `<div class="cm-card">
+          <div class="cm-title">${model}</div>
+          <table style="border-collapse:collapse">${rows}</table>
+        </div>`;
+      }).join('');
+    }
+
+    function renderAll() {
+      renderTable();
+      renderCharts();
+      renderConfusionMatrices();
+    }
+
+    // Toggle handlers
+    document.getElementById('taskToggle').addEventListener('click', e => {
+      const btn = e.target.closest('.toggle-btn');
+      if (!btn) return;
+      document.querySelectorAll('#taskToggle .toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTask = btn.dataset.task;
+      renderAll();
+    });
+
+    document.getElementById('featToggle').addEventListener('click', e => {
+      const btn = e.target.closest('.toggle-btn');
+      if (!btn) return;
+      document.querySelectorAll('#featToggle .toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFeat = btn.dataset.feat;
+      renderAll();
+    });
+
+    // Load data
+    async function init() {
+      try {
+        metricsData = await apiGet('/api/compare');
+        document.getElementById('loadingMsg').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        renderAll();
+      } catch (err) {
+        document.getElementById('loadingMsg').style.display = 'none';
+        const errEl = document.getElementById('errorMsg');
+        errEl.textContent = '⚠️ Could not load metrics: ' + err.message + '. Make sure the backend server is running on port 8000.';
+        errEl.style.display = 'flex';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
